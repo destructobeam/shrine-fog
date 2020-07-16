@@ -5,13 +5,14 @@ require "uri"
 class Shrine
   module Storage
     class Fog
-      attr_reader :connection, :directory, :prefix
+      attr_reader :connection, :directory, :prefix, :public
 
-      def initialize(directory:, prefix: nil, connection: nil, upload_options: {}, **options)
+      def initialize(directory:, prefix: nil, connection: nil, upload_options: {}, public: nil, **options)
         @connection = connection || ::Fog::Storage.new(options)
         @directory = @connection.directories.new(key: directory)
         @prefix = prefix
         @upload_options = upload_options
+        @public = public
       end
 
       def upload(io, id, **upload_options)
@@ -36,15 +37,13 @@ class Shrine
         file(id).destroy
       end
 
-      def url(id, public: false, expires: 3600, **options)
-        signed_url = file(id).url(Time.now.utc + expires, *[**options])
+      def url(id, public: self.public, expires: 3600, **options)
+        record = file(id)
 
         if public
-          uri = URI.parse(signed_url)
-          uri.query = nil
-          uri.to_s
+          record.public_url
         else
-          signed_url
+          record.url(Time.now.utc + expires, *[**options])
         end
       end
 
